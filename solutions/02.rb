@@ -1,28 +1,28 @@
 class NumberSet
   include Enumerable
 
-  def initialize(container = [])
-    @container = container
+  def initialize(numbers = [])
+    @numbers = numbers
   end
 
   def <<(number)
-   @container << number unless @container.include? number
+   @numbers << number unless @numbers.include? number
   end
 
   def size
-    @container.size
+    @numbers.size
   end
 
   def empty?
-    @container.empty?
+    @numbers.empty?
   end
 
   def [](condition)
-    NumberSet.new @container.select { |number| condition.satisfied_by? number }
+    NumberSet.new @numbers.select { |number| condition.satisfied_by? number }
   end
 
   def each(&block)
-    @container.each(&block)
+    @numbers.each &block
   end
 end
 
@@ -51,9 +51,9 @@ class TypeFilter < Filter
 
   def satisfied_by?(number)
     case @condition
-    when :integer then number.class == Fixnum or number.class == Bignum
-    when :real then number.class == Float or number.class == Rational
-    else number.class == Complex
+    when :integer then number.is_a? Integer
+    when :real    then number.is_a? Float or number.is_a? Rational
+    else number.is_a? Complex
     end
   end
 end
@@ -65,9 +65,9 @@ class SignFilter < Filter
 
   def satisfied_by?(number)
     case @condition
-    when :positive then number > 0
+    when :positive     then number > 0
     when :non_positive then number <= 0
-    when :negative then number < 0
+    when :negative     then number < 0
     else number >= 0
     end
   end
