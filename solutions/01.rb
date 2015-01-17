@@ -1,11 +1,15 @@
-def fibonacci(n)
-    n <= 1 ? n : fibonacci(n - 1) + fibonacci(n - 2)
+def case_series(n, first, second)
+  case n
+  when 1 then first
+  when 2 then second
+  else case_series(n - 1, first, second) + case_series(n - 2, first, second)
+  end
 end
 
-def lucas(n)
-    n == 1 ? 2 : n == 2 ? 1 : lucas(n - 1) + lucas(n - 2)
-end
-
-def series(row, n)
-    row == "summed" ? fibonacci(n) + lucas(n) : send(row, n)
+def series(type, n)
+  case type
+  when 'fibonacci' then case_series(n, 1, 1)
+  when 'lucas'     then case_series(n, 2, 1)
+  else series('fibonacci', n) + series('lucas', n)
+  end
 end
