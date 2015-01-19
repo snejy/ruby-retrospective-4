@@ -1,59 +1,145 @@
 module UI
-  class Style
-    def initialize
-      @labels = []
-      @horizontal = []
+  class Component
+    attr_writer :style
+
+    def initialize(parent)
+      @parent = parent
+      @style = -> text { text }
     end
 
-    def form(text, border)
-      border + text + border
-    end
-
-    def style(text, style)
-      style.length != 0 ? text.send(style) : text
-    end
-
-    def label(arguments_to_style)
-      @style, @border = arguments_to_style[:style], arguments_to_style[:border]
-      @labels << style(arguments_to_style[:text], @style.to_s)
-      @labels.map { |word| form(word, @border.to_s) }
-    end
-
-    def vertical(text, options)
-      @border, @style = options[:border].to_s, options[:style].to_s
-      max = text.max_by(&:length).length
-      text.map { |ch| form(style(ch.ljust(max), @style), @border) + "\n" }.join
-    end
-
-    def horizontal(text, options)
-      @border, @style, @labels = options[:border], options[:style], []
-      horizontal = []
-        text.each do |word|
-          horizontal << style(word, @style.to_s)
-        end
-      @horizontal << form(horizontal.join, @border.to_s)
+    def stylize(text)
+      text = @parent.stylize(text) if @parent
+      @style.call text
     end
   end
 
-  class TextScreen
-    def self.draw(&block)
-      @blocks_count = 1
-      @style = Style.new()
+  class Label < Component
+    def initialize(parent, text)
+      super(parent)
+      @text = text
+    end
+
+    def width
+      @text.size
+    end
+
+    def height
+      1
+    end
+
+    def row_to_string(row)
+      stylize @text
+    end
+  end
+
+  class BorderDecorator
+    def initialize(component, border)
+      @component = component
+      @border = border
+    end
+
+    def width
+      @component.width + 2 * @border.length
+    end
+
+    def height
+      @component.height
+    end
+
+    def stylize(text)
+      @component.stylize text
+    end
+
+    def row_to_string(row)
+      component_string = @component.row_to_string(row)
+      "#{@border}#{component_string.ljust(@component.width)}#{@border}"
+    end
+  end
+
+  class Container < Component
+    attr_reader :components
+
+    def initialize(parent = nil, &block)
+      super(parent)
+      @components = []
       instance_eval(&block)
     end
 
-    def self.label(label)
-      @blocks_count == 1 ? @style.label(label).join : @style.label(label)
+    def vertical(border: nil, style: nil, &block)
+      add decorate(VerticalGroup.new(self, &block), border, style)
     end
 
-    def self.vertical(options = {}, &block)
-      @blocks_count += 1
-      @style.vertical(instance_eval(&block), options)
+    def horizontal(border: nil, style: nil, &block)
+      add decorate(HorizontalGroup.new(self, &block), border, style)
     end
 
-    def self.horizontal(options = {}, &block)
-      @blocks_count += 1
-      @style.horizontal(instance_exec(&block), options)
+    def label(text:, border: nil, style: nil)
+      add decorate(Label.new(self, text), border, style)
+    end
+
+    private
+
+    def add(component)
+      @components << component
+    end
+
+    def decorate(component, border, style)
+      component.style = :downcase.to_proc if style == :downcase
+      component.style = :upcase.to_proc   if style == :upcase
+      component = BorderDecorator.new(component, border) if border
+      component
+    end
+  end
+
+  class VerticalGroup < Container
+    def width
+      @components.map(&:width).max
+    end
+
+    def height
+      @components.map(&:height).reduce(:+)
+    end
+
+    def row_to_string(row)
+      components_reaches = @components.map.with_index do |component, index|
+        [component, @components.first(index + 1).map(&:height).reduce(:+)]
+      end.select { |_, component_reach| row < component_reach }
+      component, component_reach = components_reaches.first
+      component.row_to_string(row - component_reach + component.height)
+    end
+  end
+
+  class HorizontalGroup < Container
+    def width
+      @components.map(&:width).reduce(:+)
+    end
+
+    def height
+      @components.map(&:height).max
+    end
+
+    def row_to_string(row)
+      @components.map { |component| component_to_s component, row }.join
+    end
+
+    private
+
+    def component_to_s(component, row)
+      if component.height > row
+        component.row_to_string row
+      else
+        " " * component.width
+      end
+    end
+  end
+
+  class TextScreen < HorizontalGroup
+    def self.draw(&block)
+      new(&block)
+    end
+
+    def to_s
+      (0...height).map { |row| "#{row_to_string(row)}\n" }.join
     end
   end
 end
